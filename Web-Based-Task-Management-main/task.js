@@ -1,82 +1,104 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const addTaskBtn = document.getElementById("add-task-btn");
-  const taskFormContainer = document.getElementById("task-form-container");
-  const taskForm = document.getElementById("task-form");
-  const cancelBtn = document.getElementById("cancel-btn");
-  const taskList = document.getElementById("task-list");
-  const emptyState = document.getElementById("empty-state");
-  const completionImage = document.getElementById("completion-image");
-
-  // Load tasks from localStorage
-  let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
-
-  const saveTasks = () => {
-    localStorage.setItem("tasks", JSON.stringify(tasks));
-  };
-
-  const renderTasks = () => {
-    taskList.innerHTML = "";
-    tasks.forEach((task, index) => {
-      const taskItem = document.createElement("li");
-      const isUrgent = new Date(task.dueDate) < new Date(Date.now() + 86400000);
-      taskItem.classList.add("task-item");
-      taskItem.innerHTML = `
-        <div class="task-info">
-          <h3 class="${isUrgent ? 'urgent' : ''}">${task.title}</h3>
-          <p>${task.description}</p>
-          <small>Due: ${task.dueDate}</small>
-        </div>
-        <button class="delete-btn" data-index="${index}">
-          <i class="fas fa-trash-alt"></i> Delete
-        </button>
-      `;
-
-      taskItem.querySelector(".delete-btn").addEventListener("click", () => {
-        tasks.splice(index, 1);
-        saveTasks();
-        renderTasks();
-      });
-
-      taskList.appendChild(taskItem);
-    });
-
-    updateTaskVisuals();
-  };
-
-  const updateTaskVisuals = () => {
-    if (tasks.length === 0) {
-      emptyState.style.display = "block";
-      completionImage.style.display = "none";
-    } else {
-      emptyState.style.display = "none";
-      completionImage.style.display = "none"; // Optional: handle "all completed" logic later
-    }
-  };
-
-  addTaskBtn.addEventListener("click", () => {
-    taskFormContainer.style.display = "block";
-  });
-
-  cancelBtn.addEventListener("click", () => {
-    taskFormContainer.style.display = "none";
-  });
-
-  taskForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-
-    const title = document.getElementById("task-title").value;
-    const description = document.getElementById("task-description").value;
-    const dueDate = document.getElementById("task-due-date").value;
-
-    if (title && dueDate) {
-      tasks.push({ title, description, dueDate });
-      saveTasks();
-      renderTasks();
-
-      taskForm.reset();
-      taskFormContainer.style.display = "none";
-    }
-  });
-
-  renderTasks(); // Initial render on page load
+  document.getElementById("addBtn").addEventListener("click", addTask);
+  document.getElementById("searchInput").addEventListener("input", filterTasks);
+  loadTasks();
 });
+
+function getTasks() {
+  return JSON.parse(localStorage.getItem("tasks")) || [];
+}
+
+function saveTasks(tasks) {
+  localStorage.setItem("tasks", JSON.stringify(tasks));
+}
+
+function addTask() {
+  const title = document.getElementById("title").value.trim();
+  const desc = document.getElementById("desc").value.trim();
+  const time = document.getElementById("time").value;
+
+  if (!title || !time) {
+    alert("Please enter both title and time.");
+    return;
+  }
+
+  const task = {
+    title,
+    description: desc,
+    time,
+    completed: false
+  };
+
+  const tasks = getTasks();
+  tasks.push(task);
+  saveTasks(tasks);
+  loadTasks();
+
+  document.getElementById("title").value = "";
+  document.getElementById("desc").value = "";
+  document.getElementById("time").value = "";
+}
+
+function loadTasks() {
+  const taskList = document.getElementById("taskList");
+  taskList.innerHTML = "";
+  const tasks = getTasks();
+
+  tasks.forEach((task, index) => {
+    const li = document.createElement("li");
+    if (task.completed) li.classList.add("completed");
+
+    const overdue = new Date(task.time) < new Date() && !task.completed;
+    if (overdue) li.style.borderLeftColor = "red";
+
+    li.innerHTML = `
+      <strong>${task.title}</strong>
+      <div class="task-meta">${task.description}</div>
+      <div class="task-meta">Scheduled: ${new Date(task.time).toLocaleString()}</div>
+      <div class="task-actions">
+        <button class="complete-btn" onclick="toggleComplete(${index})">
+          ${task.completed ? "Undo" : "Complete"}
+        </button>
+        <button class="delete-btn" onclick="deleteTask(${index})">Delete</button>
+      </div>
+    `;
+    taskList.appendChild(li);
+  });
+}
+
+function toggleComplete(index) {
+  const tasks = getTasks();
+  tasks[index].completed = !tasks[index].completed;
+  saveTasks(tasks);
+  loadTasks();
+}
+
+function deleteTask(index) {
+  const tasks = getTasks();
+  tasks.splice(index, 1);
+  saveTasks(tasks);
+  loadTasks();
+}
+
+function clearCompleted() {
+  let tasks = getTasks().filter(task => !task.completed);
+  saveTasks(tasks);
+  loadTasks();
+}
+
+function clearAll() {
+  if (confirm("Are you sure you want to delete all tasks?")) {
+    localStorage.removeItem("tasks");
+    loadTasks();
+  }
+}
+
+function filterTasks() {
+  const query = document.getElementById("searchInput").value.toLowerCase();
+  const tasks = document.querySelectorAll("#taskList li");
+
+  tasks.forEach(task => {
+    const text = task.textContent.toLowerCase();
+    task.style.display = text.includes(query) ? "block" : "none";
+  });
+}
